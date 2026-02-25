@@ -411,6 +411,89 @@
     color: var(--text3);
   }
 
+  /* SELECTOR DE OPERADOR */
+  .operador-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+
+  .operador-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .operador-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .op-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .op-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+  .op-btn.selected {
+    background: rgba(126,200,80,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* STATS OPERADORES */
+  .op-stats {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+
+  .op-stats-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  .op-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  .op-stat-name {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .op-stat-has {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    color: var(--accent);
+  }
+
+  .op-stat-empty {
+    font-size: 11px;
+    color: var(--text3);
+    font-style: italic;
+  }
+
   /* EDITOR DE FECHA */
   .edit-fecha-btn {
     display: flex;
@@ -644,6 +727,7 @@ function parseCSV(text) {
       insumo: cols[7]?.replace(/"/g,'').trim() || '',
       cantidad: parseFloat(cols[9]?.replace(/"/g,'').replace(',','.')) || 0,
       id: cols[14]?.replace(/"/g,'').trim() || '',
+      operador: cols[15]?.replace(/"/g,'').trim() || '',
     });
   }
   return rows;
@@ -693,6 +777,7 @@ function groupApplications(rows) {
         zona: row.zona,
         superficie: row.superficie,
         id: row.id,
+        operador: row.operador || '',
         productos: []
       };
     }
@@ -779,6 +864,8 @@ function renderMes() {
       </div>
     </div>
   `;
+
+  html += renderStatsOperadores(groups);
 
   if (groups.length === 0) {
     html += `<div class="empty-state">
@@ -893,7 +980,16 @@ function renderCard(g) {
       ${g.id ? `
       <button class="edit-fecha-btn" onclick="mostrarEditorFecha(this, '${g.id}', '${fechaISO}')">
         ✎ Corregir fecha de aplicación
-      </button>` : ''}
+      </button>
+      <div class="operador-section">
+        <div class="operador-title">¿Quién fumigó?</div>
+        <div class="operador-btns">
+          <button class="op-btn ${g.operador === 'Solo' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', 'Solo', this)">Solo</button>
+          <button class="op-btn ${g.operador === '+Pato' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Pato', this)">+ Pato</button>
+          <button class="op-btn ${g.operador === '+Mauri' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Mauri', this)">+ Mauri</button>
+          <button class="op-btn ${g.operador === '+Robertito' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Robertito', this)">+ Robertito</button>
+        </div>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -966,6 +1062,71 @@ async function guardarFecha(id, saveBtn) {
     saveBtn.textContent = '✓';
     saveBtn.disabled = false;
   }
+}
+
+async function guardarOperador(id, operador, btn) {
+  // Toggle: si ya está seleccionado, deseleccionar
+  const yaSeleccionado = btn.classList.contains('selected');
+  const operadorFinal = yaSeleccionado ? '' : operador;
+
+  // Actualizar UI inmediatamente
+  btn.closest('.operador-btns').querySelectorAll('.op-btn').forEach(b => b.classList.remove('selected'));
+  if (!yaSeleccionado) btn.classList.add('selected');
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ id, operador: operadorFinal })
+    });
+    // Actualizar datos locales
+    for (const row of allData) {
+      if (row.id && row.id.toLowerCase() === id.toLowerCase()) {
+        row.operador = operadorFinal;
+      }
+    }
+  } catch(e) {
+    // Si falla, revertir UI
+    btn.classList.remove('selected');
+    alert('No se pudo guardar. Verificá la conexión.');
+  }
+}
+
+function calcularStatsOperadores(groups) {
+  const stats = { 'Solo': 0, '+Pato': 0, '+Mauri': 0, '+Robertito': 0, 'Sin cargar': 0 };
+  for (const g of groups) {
+    const op = g.operador || '';
+    if (!op) { stats['Sin cargar'] += g.superficie; }
+    else if (op === 'Solo') { stats['Solo'] += g.superficie; }
+    else if (op === '+Pato') { stats['+Pato'] += g.superficie; }
+    else if (op === '+Mauri') { stats['+Mauri'] += g.superficie; }
+    else if (op === '+Robertito') { stats['+Robertito'] += g.superficie; }
+  }
+  return stats;
+}
+
+function renderStatsOperadores(groups) {
+  const stats = calcularStatsOperadores(groups);
+  const tieneAlgo = Object.entries(stats).some(([k,v]) => k !== 'Sin cargar' && v > 0);
+
+  if (!tieneAlgo) {
+    return `<div class="op-stats">
+      <div class="op-stats-title">¿Quién fumigó este mes?</div>
+      <div class="op-stat-empty">Todavía no hay operadores cargados</div>
+    </div>`;
+  }
+
+  let rows = '';
+  if (stats['Solo'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Lalo solo</span><span class="op-stat-has">${stats['Solo'].toLocaleString('es-AR')} has</span></div>`;
+  if (stats['+Pato'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Pato</span><span class="op-stat-has">${stats['+Pato'].toLocaleString('es-AR')} has</span></div>`;
+  if (stats['+Mauri'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Mauri</span><span class="op-stat-has">${stats['+Mauri'].toLocaleString('es-AR')} has</span></div>`;
+  if (stats['+Robertito'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Robertito</span><span class="op-stat-has">${stats['+Robertito'].toLocaleString('es-AR')} has</span></div>`;
+  if (stats['Sin cargar'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name" style="color:var(--text3)">Sin cargar</span><span class="op-stat-has" style="color:var(--text3)">${stats['Sin cargar'].toLocaleString('es-AR')} has</span></div>`;
+
+  return `<div class="op-stats">
+    <div class="op-stats-title">Operadores — este mes</div>
+    ${rows}
+  </div>`;
 }
 
 function changeMonth(dir) {
