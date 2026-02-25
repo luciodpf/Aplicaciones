@@ -411,6 +411,71 @@
     color: var(--text3);
   }
 
+  /* EDITOR DE FECHA */
+  .edit-fecha-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.2s;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .edit-fecha-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .fecha-editor {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .fecha-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  .fecha-input:focus { outline: none; }
+
+  .fecha-save-btn {
+    background: var(--accent2);
+    border: none;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .fecha-save-btn:hover { opacity: 0.85; }
+  .fecha-cancel-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
   /* LOADING */
   .loading-screen {
     display: flex;
@@ -553,6 +618,8 @@ let currentYear = new Date().getFullYear();
 let selectedCampo = null;
 let currentZona = 'todas'; // 'todas', 'Sur', 'Norte'
 
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxxV1GsE0GGpbXZ4MPTrD8igPgW0i2-pJxI4n5NBeDNNJqcIBR94XWRJK8mDjvSkgo2nQ/exec';
+
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MESES_CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
@@ -576,6 +643,7 @@ function parseCSV(text) {
       superficie: parseFloat(cols[6]?.replace(/"/g,'').replace(',','.')) || 0,
       insumo: cols[7]?.replace(/"/g,'').trim() || '',
       cantidad: parseFloat(cols[9]?.replace(/"/g,'').replace(',','.')) || 0,
+      id: cols[14]?.replace(/"/g,'').trim() || '',
     });
   }
   return rows;
@@ -624,6 +692,7 @@ function groupApplications(rows) {
         lote: row.lote,
         zona: row.zona,
         superficie: row.superficie,
+        id: row.id,
         productos: []
       };
     }
@@ -799,8 +868,11 @@ function renderCard(g) {
     </div>`
   ).join('');
 
-  return `<div class="app-card" onclick="toggleCard(this)">
-    <div class="card-main">
+  const idAttr = g.id ? `data-id="${g.id}"` : '';
+  const fechaISO = `${g.fecha.getFullYear()}-${String(g.fecha.getMonth()+1).padStart(2,'0')}-${String(g.fecha.getDate()).padStart(2,'0')}`;
+
+  return `<div class="app-card" ${idAttr}>
+    <div class="card-main" onclick="toggleCard(this.closest('.app-card'))">
       <div class="card-date-block">
         <div class="card-day">${day}</div>
         <div class="card-month-short">${mon}</div>
@@ -818,12 +890,82 @@ function renderCard(g) {
     <div class="card-detail">
       <div class="detail-title">Productos aplicados</div>
       ${productosHTML}
+      ${g.id ? `
+      <button class="edit-fecha-btn" onclick="mostrarEditorFecha(this, '${g.id}', '${fechaISO}')">
+        ✎ Corregir fecha de aplicación
+      </button>` : ''}
     </div>
   </div>`;
 }
 
 function toggleCard(el) {
   el.classList.toggle('expanded');
+}
+
+function mostrarEditorFecha(btn, id, fechaISO) {
+  // Si ya hay un editor abierto, cerrarlo
+  const existente = btn.parentElement.querySelector('.fecha-editor');
+  if (existente) { existente.remove(); btn.style.display = 'flex'; return; }
+
+  btn.style.display = 'none';
+  const editor = document.createElement('div');
+  editor.className = 'fecha-editor';
+  editor.innerHTML = `
+    <input type="date" class="fecha-input" value="${fechaISO}" id="input-fecha-${id.replace(/[|]/g,'-')}">
+    <button class="fecha-save-btn" onclick="guardarFecha('${id}', this)">✓</button>
+    <button class="fecha-cancel-btn" onclick="cancelarEdicion(this, '${id}')">✕</button>
+  `;
+  btn.parentElement.appendChild(editor);
+}
+
+function cancelarEdicion(cancelBtn, id) {
+  const editor = cancelBtn.closest('.fecha-editor');
+  const card = cancelBtn.closest('.app-card');
+  editor.remove();
+  card.querySelector('.edit-fecha-btn').style.display = 'flex';
+}
+
+async function guardarFecha(id, saveBtn) {
+  const inputId = 'input-fecha-' + id.replace(/[|]/g,'-');
+  const input = document.getElementById(inputId);
+  if (!input || !input.value) return;
+
+  // Convertir de YYYY-MM-DD a DD/MM/AAAA
+  const [y, m, d] = input.value.split('-');
+  const fechaFormateada = `${d}/${m}/${y}`;
+
+  saveBtn.textContent = '...';
+  saveBtn.disabled = true;
+
+  try {
+    const resp = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ id, fechaNueva: fechaFormateada })
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      const editor = saveBtn.closest('.fecha-editor');
+      const card = editor.closest('.app-card');
+      editor.remove();
+      card.querySelector('.edit-fecha-btn').style.display = 'flex';
+      // Mostrar confirmación breve
+      const confirm = document.createElement('div');
+      confirm.style.cssText = 'text-align:center;color:var(--accent);font-size:11px;padding:6px 0';
+      confirm.textContent = '✓ Fecha actualizada — tocá Actualizar para ver los cambios';
+      card.querySelector('.card-detail').appendChild(confirm);
+      setTimeout(() => confirm.remove(), 4000);
+    } else {
+      alert('Error: ' + data.mensaje);
+      saveBtn.textContent = '✓';
+      saveBtn.disabled = false;
+    }
+  } catch(e) {
+    alert('No se pudo conectar. Verificá la conexión.');
+    saveBtn.textContent = '✓';
+    saveBtn.disabled = false;
+  }
 }
 
 function changeMonth(dir) {
