@@ -988,6 +988,7 @@ function renderCard(g) {
           <button class="op-btn ${g.operador === '+Pato' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Pato', this)">+ Pato</button>
           <button class="op-btn ${g.operador === '+Mauri' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Mauri', this)">+ Mauri</button>
           <button class="op-btn ${g.operador === '+Robertito' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', '+Robertito', this)">+ Robertito</button>
+          <button class="op-btn ${g.operador === 'Terceros' ? 'selected' : ''}" onclick="guardarOperador('${g.id}', 'Terceros', this)">Terceros</button>
         </div>
       </div>` : ''}
     </div>
@@ -1093,7 +1094,7 @@ async function guardarOperador(id, operador, btn) {
 }
 
 function calcularStatsOperadores(groups) {
-  const stats = { 'Solo': 0, '+Pato': 0, '+Mauri': 0, '+Robertito': 0, 'Sin cargar': 0 };
+  const stats = { 'Solo': 0, '+Pato': 0, '+Mauri': 0, '+Robertito': 0, 'Terceros': 0, 'Sin cargar': 0 };
   for (const g of groups) {
     const op = g.operador || '';
     if (!op) { stats['Sin cargar'] += g.superficie; }
@@ -1101,6 +1102,7 @@ function calcularStatsOperadores(groups) {
     else if (op === '+Pato') { stats['+Pato'] += g.superficie; }
     else if (op === '+Mauri') { stats['+Mauri'] += g.superficie; }
     else if (op === '+Robertito') { stats['+Robertito'] += g.superficie; }
+    else if (op === 'Terceros') { stats['Terceros'] += g.superficie; }
   }
   return stats;
 }
@@ -1121,6 +1123,7 @@ function renderStatsOperadores(groups) {
   if (stats['+Pato'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Pato</span><span class="op-stat-has">${stats['+Pato'].toLocaleString('es-AR')} has</span></div>`;
   if (stats['+Mauri'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Mauri</span><span class="op-stat-has">${stats['+Mauri'].toLocaleString('es-AR')} has</span></div>`;
   if (stats['+Robertito'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Con Robertito</span><span class="op-stat-has">${stats['+Robertito'].toLocaleString('es-AR')} has</span></div>`;
+  if (stats['Terceros'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name">Terceros</span><span class="op-stat-has">${stats['Terceros'].toLocaleString('es-AR')} has</span></div>`;
   if (stats['Sin cargar'] > 0) rows += `<div class="op-stat-row"><span class="op-stat-name" style="color:var(--text3)">Sin cargar</span><span class="op-stat-has" style="color:var(--text3)">${stats['Sin cargar'].toLocaleString('es-AR')} has</span></div>`;
 
   return `<div class="op-stats">
