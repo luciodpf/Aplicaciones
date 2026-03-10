@@ -34,7 +34,6 @@
     overflow-x: hidden;
   }
 
-  /* HEADER */
   .header {
     background: var(--bg2);
     border-bottom: 1px solid var(--border);
@@ -85,7 +84,6 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* TABS */
   .tabs {
     display: flex;
     gap: 0;
@@ -109,7 +107,6 @@
     border-bottom-color: var(--accent);
   }
 
-  /* ZONA BAR */
   .zona-bar {
     display: flex;
     gap: 6px;
@@ -135,14 +132,12 @@
     color: var(--accent);
   }
 
-  /* MAIN */
   .main {
     padding: 16px;
     max-width: 500px;
     margin: 0 auto;
   }
 
-  /* STATS BAR */
   .stats-bar {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -174,7 +169,6 @@
     margin-top: 4px;
   }
 
-  /* FILTER */
   .filter-row {
     display: flex;
     gap: 8px;
@@ -210,7 +204,6 @@
     font-size: 10px;
   }
 
-  /* MONTH NAV */
   .month-nav {
     display: flex;
     align-items: center;
@@ -242,7 +235,6 @@
     text-transform: capitalize;
   }
 
-  /* APPLICATION CARD */
   .app-card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -335,7 +327,6 @@
     border: 1px solid var(--border);
   }
 
-  /* EXPANDED DETAIL */
   .card-detail {
     display: none;
     border-top: 1px solid var(--border);
@@ -375,7 +366,6 @@
     white-space: nowrap;
   }
 
-  /* CAMPO VIEW */
   .campo-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -411,7 +401,6 @@
     color: var(--text3);
   }
 
-  /* SELECTOR DE OPERADOR */
   .operador-section {
     margin-top: 12px;
     border-top: 1px solid var(--border);
@@ -453,7 +442,6 @@
     font-weight: 500;
   }
 
-  /* STATS OPERADORES */
   .op-stats {
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -494,7 +482,6 @@
     font-style: italic;
   }
 
-  /* EDITOR DE FECHA */
   .edit-fecha-btn {
     display: flex;
     align-items: center;
@@ -559,7 +546,6 @@
     cursor: pointer;
   }
 
-  /* LOADING */
   .loading-screen {
     display: flex;
     flex-direction: column;
@@ -609,7 +595,6 @@
   .empty-icon { font-size: 40px; margin-bottom: 12px; }
   .empty-text { font-size: 13px; line-height: 1.6; }
 
-  /* ERROR */
   .error-banner {
     background: rgba(200, 80, 80, 0.15);
     border: 1px solid rgba(200, 80, 80, 0.3);
@@ -621,7 +606,6 @@
     line-height: 1.5;
   }
 
-  /* SECTION HEADER */
   .section-header {
     font-size: 10px;
     text-transform: uppercase;
@@ -690,8 +674,6 @@
 const SHEET_ID = '1jfk3SU0AR4aT9po5DtSv4_-GUs9vFnUHGKkBZtdMwqw';
 const SHEET_NAME = 'Aplicaciones';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
-
-// Campos zona norte
 const CAMPOS_NORTE = ['salera','mondino','bertolini','cibalero','gazano'];
 
 let allData = [];
@@ -699,12 +681,16 @@ let currentTab = 'mes';
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 let selectedCampo = null;
-let currentZona = 'todas'; // 'todas', 'Sur', 'Norte'
+let currentZona = 'todas';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxxV1GsE0GGpbXZ4MPTrD8igPgW0i2-pJxI4n5NBeDNNJqcIBR94XWRJK8mDjvSkgo2nQ/exec';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MESES_CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
+function getZonaCampo(campo) {
+  return CAMPOS_NORTE.includes(campo.toLowerCase()) ? 'Norte' : 'Sur';
+}
 
 function parseCSV(text) {
   const lines = text.trim().split('\n');
@@ -753,7 +739,6 @@ function parseCSVLine(line) {
 
 function parseDate(str) {
   if (!str) return null;
-  // DD/MM/YYYY or DD/MM/YY
   const parts = str.split('/');
   if (parts.length === 3) {
     let [d, m, y] = parts;
@@ -873,7 +858,6 @@ function renderMes() {
       <div class="empty-text">No hay aplicaciones en<br>${MESES[currentMonth]} ${currentYear}</div>
     </div>`;
   } else {
-    // Agrupar por fecha para section headers
     let lastDate = null;
     for (const g of groups) {
       const dateLabel = `${g.fecha.getDate()} de ${MESES[g.fecha.getMonth()]}`;
@@ -890,7 +874,6 @@ function renderMes() {
 
 function renderCampo() {
   if (!selectedCampo) {
-    // Mostrar grilla de campos
     const camposMap = {};
     const dataZona = currentZona === 'todas' ? allData : allData.filter(r => r.zona === currentZona);
     for (const r of dataZona) {
@@ -1000,7 +983,6 @@ function toggleCard(el) {
 }
 
 function mostrarEditorFecha(btn, id, fechaISO) {
-  // Si ya hay un editor abierto, cerrarlo
   const existente = btn.parentElement.querySelector('.fecha-editor');
   if (existente) { existente.remove(); btn.style.display = 'flex'; return; }
 
@@ -1010,12 +992,12 @@ function mostrarEditorFecha(btn, id, fechaISO) {
   editor.innerHTML = `
     <input type="date" class="fecha-input" value="${fechaISO}" id="input-fecha-${id.replace(/[|]/g,'-')}">
     <button class="fecha-save-btn" onclick="guardarFecha('${id}', this)">✓</button>
-    <button class="fecha-cancel-btn" onclick="cancelarEdicion(this, '${id}')">✕</button>
+    <button class="fecha-cancel-btn" onclick="cancelarEdicion(this)">✕</button>
   `;
   btn.parentElement.appendChild(editor);
 }
 
-function cancelarEdicion(cancelBtn, id) {
+function cancelarEdicion(cancelBtn) {
   const editor = cancelBtn.closest('.fecha-editor');
   const card = cancelBtn.closest('.app-card');
   editor.remove();
@@ -1027,7 +1009,6 @@ async function guardarFecha(id, saveBtn) {
   const input = document.getElementById(inputId);
   if (!input || !input.value) return;
 
-  // Convertir de YYYY-MM-DD a DD/MM/AAAA
   const [y, m, d] = input.value.split('-');
   const fechaFormateada = `${d}/${m}/${y}`;
 
@@ -1035,30 +1016,22 @@ async function guardarFecha(id, saveBtn) {
   saveBtn.disabled = true;
 
   try {
-    const resp = await fetch(WEB_APP_URL, {
+    await fetch(WEB_APP_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ id, fechaNueva: fechaFormateada })
     });
-    const data = await resp.json();
-
-    if (data.ok) {
-      const editor = saveBtn.closest('.fecha-editor');
-      const card = editor.closest('.app-card');
-      editor.remove();
-      card.querySelector('.edit-fecha-btn').style.display = 'flex';
-      // Mostrar confirmación breve
-      const confirm = document.createElement('div');
-      confirm.style.cssText = 'text-align:center;color:var(--accent);font-size:11px;padding:6px 0';
-      confirm.textContent = '✓ Fecha actualizada — tocá Actualizar para ver los cambios';
-      card.querySelector('.card-detail').appendChild(confirm);
-      setTimeout(() => confirm.remove(), 4000);
-    } else {
-      alert('Error: ' + data.mensaje);
-      saveBtn.textContent = '✓';
-      saveBtn.disabled = false;
-    }
+    // Con no-cors no se puede leer la respuesta, asumimos éxito
+    const editor = saveBtn.closest('.fecha-editor');
+    const card = editor.closest('.app-card');
+    editor.remove();
+    card.querySelector('.edit-fecha-btn').style.display = 'flex';
+    const confirm = document.createElement('div');
+    confirm.style.cssText = 'text-align:center;color:var(--accent);font-size:11px;padding:6px 0';
+    confirm.textContent = '✓ Fecha actualizada — tocá Actualizar para ver los cambios';
+    card.querySelector('.card-detail').appendChild(confirm);
+    setTimeout(() => confirm.remove(), 4000);
   } catch(e) {
     alert('No se pudo conectar. Verificá la conexión.');
     saveBtn.textContent = '✓';
@@ -1067,11 +1040,9 @@ async function guardarFecha(id, saveBtn) {
 }
 
 async function guardarOperador(id, operador, btn) {
-  // Toggle: si ya está seleccionado, deseleccionar
   const yaSeleccionado = btn.classList.contains('selected');
   const operadorFinal = yaSeleccionado ? '' : operador;
 
-  // Actualizar UI inmediatamente
   btn.closest('.operador-btns').querySelectorAll('.op-btn').forEach(b => b.classList.remove('selected'));
   if (!yaSeleccionado) btn.classList.add('selected');
 
@@ -1082,14 +1053,13 @@ async function guardarOperador(id, operador, btn) {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ id, operador: operadorFinal })
     });
-    // Actualizar datos locales
+    // Con no-cors no se puede leer la respuesta, asumimos éxito
     for (const row of allData) {
       if (row.id && row.id.toLowerCase() === id.toLowerCase()) {
         row.operador = operadorFinal;
       }
     }
   } catch(e) {
-    // Si falla, revertir UI
     btn.classList.remove('selected');
     alert('No se pudo guardar. Verificá la conexión.');
   }
@@ -1146,7 +1116,6 @@ function selectCampo(nombre) {
   render();
 }
 
-// INIT
 (async () => {
   try {
     allData = await fetchData();
