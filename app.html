@@ -344,15 +344,21 @@
   }
 
   .product-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     padding: 7px 0;
     border-bottom: 1px solid var(--border);
-    gap: 8px;
   }
 
   .product-row:last-child { border-bottom: none; }
+
+  .product-view {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .product-view:hover .edit-icon { opacity: 1; }
 
   .product-name {
     font-size: 12px;
@@ -364,7 +370,19 @@
     font-size: 11px;
     color: var(--accent);
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+
+  .edit-icon {
+    font-size: 10px;
+    color: var(--text3);
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+
+  .add-product-btn { margin-top: 8px; }
 
   .campo-grid {
     display: grid;
@@ -714,6 +732,7 @@ function parseCSV(text) {
       cantidad: parseFloat(cols[9]?.replace(/"/g,'').replace(',','.')) || 0,
       id: cols[14]?.replace(/"/g,'').trim() || '',
       operador: cols[15]?.replace(/"/g,'').trim() || '',
+      fila: i + 1, // fila real en la planilla (1-based, coincide con getRange)
     });
   }
   return rows;
@@ -767,7 +786,7 @@ function groupApplications(rows) {
       };
     }
     if (row.insumo) {
-      groups[key].productos.push({ nombre: row.insumo, cantidad: row.cantidad });
+      groups[key].productos.push({ nombre: row.insumo, cantidad: row.cantidad, fila: row.fila });
     }
   }
   return Object.values(groups).sort((a, b) => b.fecha - a.fecha);
@@ -932,9 +951,11 @@ function renderCard(g) {
   const prodCount = g.productos.length;
 
   const productosHTML = g.productos.map(p =>
-    `<div class="product-row">
-      <div class="product-name">${p.nombre}</div>
-      <div class="product-qty">${p.cantidad > 0 ? p.cantidad.toLocaleString('es-AR') : ''}</div>
+    `<div class="product-row" data-fila="${p.fila || ''}" data-id="${escapeAttr(g.id)}" data-nombre="${escapeAttr(p.nombre)}" data-cantidad="${p.cantidad || 0}">
+      <div class="product-view" onclick="mostrarEditorProducto(this.closest('.product-row'))">
+        <div class="product-name">${p.nombre}</div>
+        <div class="product-qty">${p.cantidad > 0 ? p.cantidad.toLocaleString('es-AR') : ''} <span class="edit-icon">✎</span></div>
+      </div>
     </div>`
   ).join('');
 
@@ -961,6 +982,13 @@ function renderCard(g) {
       <div class="detail-title">Productos aplicados</div>
       ${productosHTML}
       ${g.id ? `
+      <button class="edit-fecha-btn add-product-btn"
+        data-id="${escapeAttr(g.id)}" data-fecha="${escapeAttr(g.fechaStr)}"
+        data-campo="${escapeAttr(g.campo)}" data-lote="${escapeAttr(g.lote)}"
+        data-zona="${escapeAttr(g.zona || '')}" data-superficie="${g.superficie || 0}"
+        onclick="mostrarFormNuevoProducto(this)">
+        + Agregar producto
+      </button>
       <button class="edit-fecha-btn" onclick="mostrarEditorFecha(this, '${g.id}', '${fechaISO}')">
         ✎ Corregir fecha de aplicación
       </button>
@@ -1062,6 +1090,148 @@ async function guardarOperador(id, operador, btn) {
   } catch(e) {
     btn.classList.remove('selected');
     alert('No se pudo guardar. Verificá la conexión.');
+  }
+}
+
+function escapeAttr(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function mostrarEditorProducto(row) {
+  if (row.querySelector('.fecha-editor')) return;
+  const nombre = row.dataset.nombre || '';
+  const cantidad = parseFloat(row.dataset.cantidad) || 0;
+
+  row.querySelector('.product-view').style.display = 'none';
+
+  const editor = document.createElement('div');
+  editor.className = 'fecha-editor';
+  editor.innerHTML = `
+    <input type="text" class="fecha-input" style="flex:2" value="${escapeAttr(nombre)}" placeholder="Producto">
+    <input type="text" class="fecha-input" style="flex:1" value="${cantidad > 0 ? cantidad : ''}" placeholder="Cant.">
+    <button class="fecha-save-btn" onclick="guardarProducto(this)">✓</button>
+    <button class="fecha-cancel-btn" onclick="cancelarEdicionProducto(this)">✕</button>
+  `;
+  row.appendChild(editor);
+}
+
+function cancelarEdicionProducto(cancelBtn) {
+  const row = cancelBtn.closest('.product-row');
+  row.querySelector('.fecha-editor').remove();
+  row.querySelector('.product-view').style.display = 'flex';
+}
+
+async function guardarProducto(saveBtn) {
+  const row = saveBtn.closest('.product-row');
+  const editor = row.querySelector('.fecha-editor');
+  const inputs = editor.querySelectorAll('input');
+  const nombreNuevo = inputs[0].value.trim();
+  const cantidadNum = parseFloat(inputs[1].value.trim().replace(',','.')) || 0;
+
+  if (!nombreNuevo) { alert('El nombre del producto no puede estar vacío.'); return; }
+
+  const fila = row.dataset.fila;
+  const id = row.dataset.id;
+
+  if (!fila) { alert('Esta fila no tiene número asignado. Tocá Actualizar y volvé a intentar.'); return; }
+
+  saveBtn.textContent = '...';
+  saveBtn.disabled = true;
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ id, fila, nombreNuevo, cantidadNueva: cantidadNum })
+    });
+    // Con no-cors no se puede leer la respuesta, asumimos éxito
+    for (const r of allData) {
+      if (String(r.fila) === String(fila)) { r.insumo = nombreNuevo; r.cantidad = cantidadNum; }
+    }
+
+    row.dataset.nombre = nombreNuevo;
+    row.dataset.cantidad = cantidadNum;
+    row.querySelector('.product-name').textContent = nombreNuevo;
+    row.querySelector('.product-qty').innerHTML = `${cantidadNum > 0 ? cantidadNum.toLocaleString('es-AR') : ''} <span class="edit-icon">✎</span>`;
+
+    editor.remove();
+    row.querySelector('.product-view').style.display = 'flex';
+  } catch(e) {
+    alert('No se pudo guardar. Verificá la conexión.');
+    saveBtn.textContent = '✓';
+    saveBtn.disabled = false;
+  }
+}
+
+function mostrarFormNuevoProducto(btn) {
+  const existente = btn.parentElement.querySelector('.nuevo-producto-form');
+  if (existente) { existente.remove(); btn.style.display = 'flex'; return; }
+
+  btn.style.display = 'none';
+  const form = document.createElement('div');
+  form.className = 'fecha-editor nuevo-producto-form';
+  form.innerHTML = `
+    <input type="text" class="fecha-input" style="flex:2" placeholder="Producto" id="nuevo-prod-nombre">
+    <input type="text" class="fecha-input" style="flex:1" placeholder="Cant." id="nuevo-prod-cantidad">
+    <button class="fecha-save-btn" onclick="guardarNuevoProducto(this)">✓</button>
+    <button class="fecha-cancel-btn" onclick="cancelarNuevoProducto(this)">✕</button>
+  `;
+  btn.parentElement.insertBefore(form, btn);
+  document.getElementById('nuevo-prod-nombre').focus();
+}
+
+function cancelarNuevoProducto(cancelBtn) {
+  const form = cancelBtn.closest('.nuevo-producto-form');
+  const detail = form.closest('.card-detail');
+  form.remove();
+  detail.querySelector('.add-product-btn').style.display = 'flex';
+}
+
+async function guardarNuevoProducto(saveBtn) {
+  const form = saveBtn.closest('.nuevo-producto-form');
+  const detail = form.closest('.card-detail');
+  const btn = detail.querySelector('.add-product-btn');
+
+  const nombreNuevo = document.getElementById('nuevo-prod-nombre').value.trim();
+  const cantidadNum = parseFloat(document.getElementById('nuevo-prod-cantidad').value.trim().replace(',','.')) || 0;
+
+  if (!nombreNuevo) { alert('Ingresá el nombre del producto.'); return; }
+
+  saveBtn.textContent = '...';
+  saveBtn.disabled = true;
+
+  const payload = {
+    accion: 'agregarProducto',
+    id: btn.dataset.id,
+    fecha: btn.dataset.fecha,
+    campo: btn.dataset.campo,
+    lote: btn.dataset.lote,
+    zona: btn.dataset.zona,
+    superficie: btn.dataset.superficie,
+    nombreNuevo,
+    cantidadNueva: cantidadNum
+  };
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    // Con no-cors no se puede leer la respuesta, asumimos éxito
+    form.remove();
+    btn.style.display = 'flex';
+    const confirm = document.createElement('div');
+    confirm.style.cssText = 'text-align:center;color:var(--accent);font-size:11px;padding:6px 0';
+    confirm.textContent = '✓ Producto agregado — tocá Actualizar para verlo en la lista';
+    detail.appendChild(confirm);
+    setTimeout(() => confirm.remove(), 4000);
+  } catch(e) {
+    alert('No se pudo guardar. Verificá la conexión.');
+    saveBtn.textContent = '✓';
+    saveBtn.disabled = false;
   }
 }
 
