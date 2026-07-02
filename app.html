@@ -653,6 +653,81 @@
   }
 
   .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .fab-add {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--accent2);
+    color: white;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fab-add:hover { background: var(--accent); }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 300;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .modal-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+
+  .modal-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .producto-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+  }
 </style>
 </head>
 <body>
@@ -686,6 +761,60 @@
   </div>
 
   <div class="main" id="main-content"></div>
+</div>
+
+<button class="fab-add" onclick="abrirModalNuevoTrabajo()" title="Nuevo trabajo">+</button>
+
+<div id="modal-nuevo" class="modal-overlay" style="display:none" onclick="if(event.target===this) cerrarModalNuevoTrabajo()">
+  <div class="modal-box">
+    <div class="modal-title">Nuevo trabajo</div>
+
+    <div class="form-group">
+      <label class="form-label">Campo</label>
+      <div class="filter-wrap">
+        <select class="filter-select" id="nt-campo"></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Lote</label>
+      <input type="text" class="fecha-input" id="nt-lote" placeholder="1" style="width:100%">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Fecha</label>
+      <input type="date" class="fecha-input" id="nt-fecha" style="width:100%">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Hectáreas</label>
+      <input type="text" class="fecha-input" id="nt-superficie" placeholder="0" style="width:100%">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Productos</label>
+      <div id="nt-productos"></div>
+      <button type="button" class="edit-fecha-btn" onclick="agregarFilaProductoNT()">+ Agregar otro producto</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">¿Quién fumigó? (opcional, se puede cargar después)</label>
+      <div class="operador-btns" id="nt-operador-btns">
+        <button type="button" class="op-btn" onclick="seleccionarOperadorNT('Solo', this)">Solo</button>
+        <button type="button" class="op-btn" onclick="seleccionarOperadorNT('+Pato', this)">+ Pato</button>
+        <button type="button" class="op-btn" onclick="seleccionarOperadorNT('+Mauri', this)">+ Mauri</button>
+        <button type="button" class="op-btn" onclick="seleccionarOperadorNT('+Robertito', this)">+ Robertito</button>
+        <button type="button" class="op-btn" onclick="seleccionarOperadorNT('Terceros', this)">Terceros</button>
+      </div>
+    </div>
+
+    <div id="nt-error" class="error-banner" style="display:none"></div>
+
+    <div class="modal-actions">
+      <button type="button" class="fecha-cancel-btn" onclick="cerrarModalNuevoTrabajo()">Cancelar</button>
+      <button type="button" class="fecha-save-btn" id="nt-guardar-btn" onclick="guardarNuevoTrabajo()" style="flex:1">Guardar trabajo</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1232,6 +1361,114 @@ async function guardarNuevoProducto(saveBtn) {
     alert('No se pudo guardar. Verificá la conexión.');
     saveBtn.textContent = '✓';
     saveBtn.disabled = false;
+  }
+}
+
+let ntOperadorSeleccionado = '';
+
+function poblarCamposNT() {
+  const select = document.getElementById('nt-campo');
+  const campos = [...new Set(allData.map(r => r.campo).filter(Boolean))].sort();
+  select.innerHTML = campos.map(c => `<option value="${escapeAttr(c)}">${c}</option>`).join('');
+}
+
+function abrirModalNuevoTrabajo() {
+  poblarCamposNT();
+  document.getElementById('nt-lote').value = '';
+  document.getElementById('nt-superficie').value = '';
+  const hoy = new Date();
+  document.getElementById('nt-fecha').value = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+  document.getElementById('nt-productos').innerHTML = '';
+  agregarFilaProductoNT();
+  ntOperadorSeleccionado = '';
+  document.querySelectorAll('#nt-operador-btns .op-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('nt-error').style.display = 'none';
+  document.getElementById('modal-nuevo').style.display = 'flex';
+}
+
+function cerrarModalNuevoTrabajo() {
+  document.getElementById('modal-nuevo').style.display = 'none';
+}
+
+function agregarFilaProductoNT() {
+  const cont = document.getElementById('nt-productos');
+  const row = document.createElement('div');
+  row.className = 'producto-input-row';
+  row.innerHTML = `
+    <input type="text" class="fecha-input" style="flex:2" placeholder="Producto">
+    <input type="text" class="fecha-input" style="flex:1" placeholder="Cant.">
+    <button type="button" class="fecha-cancel-btn" onclick="this.closest('.producto-input-row').remove()">✕</button>
+  `;
+  cont.appendChild(row);
+}
+
+function seleccionarOperadorNT(op, btn) {
+  const yaSeleccionado = btn.classList.contains('selected');
+  document.querySelectorAll('#nt-operador-btns .op-btn').forEach(b => b.classList.remove('selected'));
+  if (!yaSeleccionado) { btn.classList.add('selected'); ntOperadorSeleccionado = op; }
+  else { ntOperadorSeleccionado = ''; }
+}
+
+function generarIdNT(campo, lote, fecha) {
+  return `${campo}|${lote}|${fecha}`.toLowerCase().trim();
+}
+
+function mostrarErrorNT(msg) {
+  const errorDiv = document.getElementById('nt-error');
+  errorDiv.textContent = '⚠️ ' + msg;
+  errorDiv.style.display = 'block';
+}
+
+async function guardarNuevoTrabajo() {
+  const campo = document.getElementById('nt-campo').value;
+  const lote = document.getElementById('nt-lote').value.trim() || '1';
+  const fechaInput = document.getElementById('nt-fecha').value;
+  const superficieStr = document.getElementById('nt-superficie').value.trim().replace(',','.');
+  document.getElementById('nt-error').style.display = 'none';
+
+  if (!campo) { mostrarErrorNT('Elegí un campo.'); return; }
+  if (!fechaInput) { mostrarErrorNT('Elegí una fecha.'); return; }
+
+  const [y, m, d] = fechaInput.split('-');
+  const fecha = `${d}/${m}/${y}`;
+
+  const superficie = parseFloat(superficieStr) || 0;
+
+  const filasProducto = [...document.querySelectorAll('#nt-productos .producto-input-row')];
+  const productos = filasProducto.map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { nombre: inputs[0].value.trim(), cantidad: parseFloat(inputs[1].value.trim().replace(',','.')) || 0 };
+  }).filter(p => p.nombre);
+
+  if (productos.length === 0) { mostrarErrorNT('Agregá al menos un producto.'); return; }
+
+  const zona = getZonaCampo(campo);
+  const id = generarIdNT(campo, lote, fecha);
+
+  const btn = document.getElementById('nt-guardar-btn');
+  btn.textContent = 'Guardando...';
+  btn.disabled = true;
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        accion: 'crearTrabajo',
+        id, fecha, campo, lote, zona, superficie,
+        productos,
+        operador: ntOperadorSeleccionado
+      })
+    });
+    // Con no-cors no se puede leer la respuesta, asumimos éxito
+    cerrarModalNuevoTrabajo();
+    alert('✓ Trabajo agregado — tocá Actualizar para verlo en la lista');
+  } catch(e) {
+    mostrarErrorNT('No se pudo guardar. Verificá la conexión.');
+  } finally {
+    btn.textContent = 'Guardar trabajo';
+    btn.disabled = false;
   }
 }
 
